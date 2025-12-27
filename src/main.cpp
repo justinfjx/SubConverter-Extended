@@ -3,10 +3,8 @@
 #include <string>
 #include <unistd.h>
 
-
 #include <dirent.h>
 #include <sys/types.h>
-
 
 #include "config/ruleset.h"
 #include "handler/interfaces.h"
@@ -23,7 +21,6 @@
 #include "utils/system.h"
 #include "utils/urlencode.h"
 #include "version.h"
-
 
 // #include "vfs.h"
 
@@ -172,7 +169,7 @@ int main(int argc, char *argv[]) {
   webServer.append_response(
       "GET", "/version", "text/plain",
       [](RESPONSE_CALLBACK_ARGS) -> std::string {
-        return "SubConverter Modern\n"
+        return "SubConverter-Extended\n"
                "------------------------\n"
                "A modern enhanced implementation of subconverter, for mihomo\n"
                "Derived as a companion backend for the Custom_OpenClash_Rules "
