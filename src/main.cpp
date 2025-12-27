@@ -307,13 +307,13 @@ int main(int argc, char *argv[]) {
         <div class="divider"></div>
         
         <p class="description">
-            An enhanced implementation of subconverter, aligned with the current 
+            An enhanced implementation of subconverter, aligned with the 
             <a href="https://github.com/MetaCubeX/mihomo/tree/Meta" target="_blank">Mihomo</a> 
             <a href="https://wiki.metacubex.one/config/" target="_blank">configuration</a>
         </p>
         
         <p class="description">
-            Primarily intended for use alongside <a href="https://github.com/vernesong/OpenClash" target="_blank">OpenClash</a>
+            Primarily intended for use alongside <a href="https://github.com/vernesong/OpenClash" target="_blank">OpenClash</a>, also compatible with other Clash clients
         </p>
         
         <p class="description">
