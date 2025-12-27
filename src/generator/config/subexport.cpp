@@ -996,10 +996,37 @@ std::string proxyToClash(std::vector<Proxy> &nodes,
 
   std::string yamlnode_str = YAML::Dump(yamlnode);
 
-  // 按照正确顺序组装：yamlnode (proxies + proxy-groups) + proxy-providers +
-  // rules
+  // 手动控制顺序：在 proxy-groups 后插入 proxy-providers，然后追加 rules
   if (!proxy_providers_str.empty()) {
-    yamlnode_str += proxy_providers_str;
+    // 查找 proxy-groups 的结束位置
+    std::string proxy_groups_key =
+        ext.clash_new_field_name ? "proxy-groups:" : "Proxy Group:";
+    size_t groups_pos = yamlnode_str.find(proxy_groups_key);
+
+    if (groups_pos != std::string::npos) {
+      // 找到下一个顶级键（以  - 开头的行变为没有缩进的行）
+      size_t insert_pos = groups_pos + proxy_groups_key.length();
+      size_t next_section = yamlnode_str.find("\n", insert_pos);
+
+      // 查找proxy-groups结束位置：找到下一个不是 "  -" 或 "    " 开头的行
+      while (next_section != std::string::npos &&
+             next_section + 1 < yamlnode_str.length()) {
+        if (yamlnode_str[next_section + 1] != ' ') {
+          // 找到了下一个顶级section
+          break;
+        }
+        next_section = yamlnode_str.find("\n", next_section + 1);
+      }
+
+      if (next_section != std::string::npos) {
+        yamlnode_str.insert(next_section + 1, proxy_providers_str);
+      } else {
+        yamlnode_str += proxy_providers_str;
+      }
+    } else {
+      // 如果找不到 proxy-groups，追加到末尾
+      yamlnode_str += proxy_providers_str;
+    }
   }
 
   output_content.insert(0, yamlnode_str);
