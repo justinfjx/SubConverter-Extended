@@ -346,7 +346,7 @@ int main(int argc, char *argv[]) {
         </p>
         
         <div class="footer">
-            License: <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank">GPL-3.0</a>
+            Source Code: <a href="https://github.com/Aethersailor/SubConverter-Extended" target="_blank">GitHub</a> • License: <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank">GPL-3.0</a>
         </div>
     </div>
 </body>
