@@ -805,6 +805,24 @@ void proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode,
           "https://cp.cloudflare.com/generate_204";
       single_provider["health-check"]["interval"] = 300;
 
+      // 添加 override 配置（如果用户指定了 udp 或 scv 参数）
+      bool has_override = false;
+      YAML::Node override_node;
+
+      if (!ext.skip_cert_verify.is_undef()) {
+        override_node["skip-cert-verify"] = ext.skip_cert_verify.get();
+        has_override = true;
+      }
+
+      if (!ext.udp.is_undef()) {
+        override_node["udp"] = ext.udp.get();
+        has_override = true;
+      }
+
+      if (has_override) {
+        single_provider["override"] = override_node;
+      }
+
       provider_node[p.name] = single_provider;
     }
 
