@@ -96,7 +96,7 @@ func main() {
 
 			fmt.Printf("Found switch statement with %d cases\n", len(switchStmt.Body.List))
 
-			for i, caseClause := range switchStmt.Body.List {
+			for _, caseClause := range switchStmt.Body.List {
 				cc, ok := caseClause.(*ast.CaseClause)
 				if !ok {
 					continue
