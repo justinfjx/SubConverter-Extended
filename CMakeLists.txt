@@ -11,7 +11,7 @@ endif()
 IF(NOT CMAKE_BUILD_TYPE)
     SET(CMAKE_BUILD_TYPE Release)
 ENDIF()
-SET(CMAKE_CXX_STANDARD 17)
+SET(CMAKE_CXX_STANDARD 20)
 
 # Suppress warnings from third-party libraries
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
