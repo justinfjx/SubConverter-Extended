@@ -20,7 +20,7 @@ RUN go build \
     -buildmode=c-archive \
     -ldflags="-s -w" \
     -o libmihomo.a \
-    converter.go
+    .
 
 # Verify build output
 RUN ls -lh libmihomo.a libmihomo.h && \
