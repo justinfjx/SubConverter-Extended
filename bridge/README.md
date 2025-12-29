@@ -86,3 +86,9 @@ go mod tidy
 ```
 
 然后重新构建 Docker 镜像即可。
+
+## 📄 许可证
+
+本模块（`bridge/`）使用的 Mihomo 解析器源自 [metacubex/mihomo](https://github.com/metacubex/mihomo)，遵循 **MIT License**。
+
+整个 subconverter 项目遵循 **GPL-3.0 License**。根据许可证兼容性，MIT 代码可以在 GPL-3.0 项目中使用，但整体项目仍然受 GPL-3.0 约束。

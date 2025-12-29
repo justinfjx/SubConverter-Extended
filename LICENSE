@@ -1,3 +1,18 @@
+================================================================================
+LICENSE NOTICE
+================================================================================
+
+This project is licensed under the GNU General Public License v3.0.
+
+Some components are licensed under different terms:
+  - Mihomo parser module (bridge/): MIT License
+    Source: https://github.com/metacubex/mihomo
+
+For the full text of the GPL-3.0 license, see below.
+
+================================================================================
+
+
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
