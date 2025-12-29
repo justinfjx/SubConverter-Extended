@@ -1,4 +1,4 @@
-module github.com/aethersailor/subconverter-bridge
+module github.com/aethersailor/subconverter-extended/bridge
 
 go 1.22.0
 

@@ -2,7 +2,7 @@
 
 Utility to convert between various proxy subscription formats.
 
-original git: https://github.com/asdlokj1qpi233/subconverter
+original git: <https://github.com/asdlokj1qpi233/subconverter>
 
 [![Build Status](https://github.com/asdlokj1qpi233/subconverter/actions/workflows/docker.yml/badge.svg)](https://github.com/asdlokj1qpi233/subconverter/actions)
 [![GitHub tag (latest SemVer)](https://img.shields.io/github/tag/asdlokj1qpi233/subconverter.svg)](https://github.com/asdlokj1qpi23/subconverter/tags)
@@ -25,25 +25,29 @@ original git: https://github.com/asdlokj1qpi233/subconverter
 ## Docker
 
 For running this docker, simply use the following commands:
+
 ```bash
 # run the container detached, forward internal port 25500 to host port 25500
-docker run -d --restart=always -p 25500:25500 asdlokj1qpi23/subconverter:latest
+docker run -d --restart=always -p 25500:25500 aethersailor/subconverter-extended:latest
 # then check its status
 curl http://localhost:25500/version
 # if you see `subconverter vx.x.x backend` then the container is up and running
 ```
+
 Or run in docker-compose:
+
 ```yaml
 ---
 version: '3'
 services:
   subconverter:
-    image: asdlokj1qpi23/subconverter:latest
+    image: aethersailor/subconverter-extended:latest
     container_name: subconverter
     ports:
       - "15051:25500"
     restart: always
 ```
+
 ## Supported Types
 
 | Type                              | As Source | As Target    | Target Name    |
@@ -74,8 +78,7 @@ Notice:
 
    - tg://http?server=1.2.3.4&port=233&user=user&pass=pass&remark=Example
 
-   - https://t.me/http?server=1.2.3.4&port=233&user=user&pass=pass&remark=Example
-
+   - <https://t.me/http?server=1.2.3.4&port=233&user=user&pass=pass&remark=Example>
 
 ---
 
@@ -137,6 +140,8 @@ Example:
 ;uncomment the following line and enter your token to enable upload function
 token = xxxxxxxxxxxxxxxxxxxxxxxx(Your Personal Access Token)
 ```
+
 ## Thanks
+
 [tindy2013](https://github.com/tindy2013)
 [https://github.com/tindy2013/subconverter](https://github.com/tindy2013/subconverter)

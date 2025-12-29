@@ -1,20 +1,23 @@
 # subconverter-docker
 
 For running this docker, simply use the following commands:
+
 ```bash
 # run the container detached, forward internal port 25500 to host port 25500
-docker run -d --restart=always -p 25500:25500 asdlokj1qpi23/subconverter:latest
+docker run -d --restart=always -p 25500:25500 aethersailor/subconverter-extended:latest
 # then check its status
 curl http://localhost:25500/version
 # if you see `subconverter vx.x.x backend` then the container is up and running
 ```
+
 Or run in docker-compose:
+
 ```yaml
 ---
 version: '3'
 services:
   subconverter:
-    image: asdlokj1qpi23/subconverter:latest
+    image: aethersailor/subconverter-extended:latest
     container_name: subconverter
     ports:
       - "15051:25500"
@@ -22,6 +25,7 @@ services:
 ```
 
 If you want to update `pref` configuration inside the docker, you can use the following command:
+
 ```bash
 # assume your configuration file name is `newpref.ini`
 curl -F "data=@newpref.ini" http://localhost:25500/updateconf?type=form\&token=password
@@ -29,6 +33,7 @@ curl -F "data=@newpref.ini" http://localhost:25500/updateconf?type=form\&token=p
 ```
 
 For those who want to use their own `pref` configuration and/or rules, snippets, profiles:
+
 ```txt
 # you can save the files you want to replace to a folder, then copy it into to the docker
 # using the latest build of the official docker
@@ -40,7 +45,9 @@ COPY replacements/ /base/
 EXPOSE 25500
 # notice that you still need to use '-p 25500:25500' when starting the docker to forward this port
 ```
+
 Save the content above to a `Dockerfile`, then run:
+
 ```bash
 # build with this Dockerfile and tag it subconverter-custom
 docker build -t subconverter-custom:latest .
