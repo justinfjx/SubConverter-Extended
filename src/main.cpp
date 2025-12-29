@@ -386,7 +386,7 @@ int main(int argc, char *argv[]) {
         <div class="divider"></div>
         
         <p class="description">
-            Forked and enhanced from: 
+            Originated and enhanced from: 
             <a href="https://github.com/asdlokj1qpi233/subconverter" target="_blank">subconverter v0.9.9</a>
         </p>
         
