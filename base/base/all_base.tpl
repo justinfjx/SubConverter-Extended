@@ -22,11 +22,9 @@ dns:
   - tls://223.5.5.5
 # Fake-IP 模式下，建议不要启用 fallback-server
 {% if local.clash.new_field_name == "true" %}
-proxies: ~
 proxy-groups: ~
 rules: ~
 {% else %}
-proxies: ~
 proxy-groups: ~
 rules: ~
 {% endif %}

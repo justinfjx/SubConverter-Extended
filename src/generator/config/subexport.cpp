@@ -851,14 +851,9 @@ void proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode,
     return;
   }
 
-  // 对于 proxy-provider 模式，proxies 段可以为空或只包含少量直连节点
-  if (ext.use_proxy_provider && !ext.providers.empty() && nodes.empty()) {
-    // 不生成 proxies 字段，或生成一个空数组
-    if (ext.clash_new_field_name)
-      yamlnode["proxies"] = YAML::Node(YAML::NodeType::Sequence);
-    else
-      yamlnode["Proxy"] = YAML::Node(YAML::NodeType::Sequence);
-  } else {
+  // 只有当存在节点时才写入 proxies 字段
+  // 纯 proxy-provider 模式下不生成 proxies 字段（模板中已移除占位符）
+  if (!nodes.empty() || proxies.size() > 0) {
     if (ext.clash_new_field_name)
       yamlnode["proxies"] = proxies;
     else
