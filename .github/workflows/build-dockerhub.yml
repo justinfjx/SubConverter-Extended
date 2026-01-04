@@ -224,7 +224,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=subconverter
 
   build-armv7:
-    runs-on: ubuntu-24.04-arm  # 在 ARM64 Runner 上模拟 ARMv7，效率远高于 x86 模拟
+    runs-on: ubuntu-24.04-arm  # ARM64 Runner 上进行交叉编译，Go 原生编译 + C++ QEMU 模拟
     needs: prepare
     if: needs.prepare.outputs.is_release == 'true'
     outputs:
@@ -239,7 +239,7 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:
-          platforms: arm  # 仅安装 ARMv7 模拟器
+          platforms: arm  # 仅用于 C++ 编译阶段，Go 使用交叉编译无需模拟
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -261,7 +261,7 @@ jobs:
           platforms: linux/arm/v7
           tags: ${{ needs.prepare.outputs.tags }}
           build-args: |
-            THREADS=2
+            THREADS=4
             SHA=${{ needs.prepare.outputs.sha_short }}
             VERSION=${{ needs.prepare.outputs.version }}
           cache-from: type=gha,scope=subconverter-armv7
