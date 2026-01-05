@@ -1,17 +1,14 @@
 # ========== GO BUILD STAGE ==========
-# 使用 Debian 版 Go 镜像（glibc），解决 Go CGO 与 musl 不兼容问题
-FROM golang:1.25-bookworm AS go-builder
+# 全链路 musl 化：使用 Alpine Go 镜像
+FROM golang:1.25-alpine AS go-builder
 
-# Docker Buildx 自动注入目标架构信息
 ARG TARGETARCH
 ARG TARGETVARIANT
 
 WORKDIR /build/bridge
 
-# Install build dependencies (gcc required for CGO)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends git build-essential && \
-    rm -rf /var/lib/apt/lists/*
+# Alpine 使用 apk 包管理器
+RUN apk add --no-cache git build-base gcc
 
 # Copy Go source code FIRST (needed for dependency analysis)
 COPY bridge/converter.go ./
@@ -33,8 +30,8 @@ COPY scripts/ ../scripts/
 RUN go run ../scripts/generate_schemes.go mihomo_schemes.h
 RUN go run ../scripts/generate_param_compat.go -o param_compat.h
 
-# Build static library (enable CGO for glibc)
-# 注意：不使用 -ldflags="-s -w"，因为移除符号表会导致 CGO 程序 Segfault
+# Build static library (enable CGO for musl)
+# 关键：不使用 -ldflags="-s -w"，保留完整符号表
 RUN echo "==> Building for $TARGETARCH" && \
     CGO_ENABLED=1 go build \
     -buildmode=c-archive \
@@ -45,22 +42,19 @@ RUN echo "==> Building for $TARGETARCH" && \
 RUN ls -lh libmihomo.a libmihomo.h
 
 # ========== C++ BUILD STAGE ==========
-# 使用 Debian 编译（glibc），确保二进制链接 glibc
-FROM debian:bookworm-slim AS builder
+# 全链路 musl 化：使用 Alpine 编译
+FROM alpine:latest AS builder
 ARG THREADS="4"
 ARG SHA=""
 ARG VERSION="dev"
 
 WORKDIR /
 
-# Install build dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    git g++ build-essential cmake python3 python3-pip \
-    pkg-config curl \
-    libcurl4-openssl-dev libpcre2-dev rapidjson-dev \
-    libyaml-cpp-dev ca-certificates ninja-build ccache && \
-    rm -rf /var/lib/apt/lists/*
+# 安装 Alpine 构建依赖
+RUN apk add --no-cache \
+    git g++ build-base cmake python3 py3-pip curl \
+    curl-dev pcre2-dev rapidjson-dev yaml-cpp-dev \
+    ca-certificates ninja ccache
 
 # quickjspp
 RUN set -xe && \
@@ -101,13 +95,13 @@ COPY --from=go-builder /build/bridge/libmihomo.h /usr/include/
 COPY --from=go-builder /build/bridge/go.mod /src/bridge/go.mod
 COPY --from=go-builder /build/bridge/go.sum /src/bridge/go.sum
 
-# build subconverter from THIS repository source (provided by build context)
+# build subconverter from THIS repository source
 WORKDIR /src
 COPY . /src
 COPY --from=go-builder /build/bridge/mihomo_schemes.h /src/src/parser/mihomo_schemes.h
 COPY --from=go-builder /build/bridge/param_compat.h /src/src/parser/param_compat.h
 
-# Download latest header-only libraries (override old versions in repo)
+# Download latest header-only libraries
 RUN set -xe && \
     echo "Downloading latest cpp-httplib..." && \
     curl -fsSL https://raw.githubusercontent.com/yhirose/cpp-httplib/master/httplib.h -o include/httplib.h && \
@@ -124,32 +118,22 @@ RUN set -xe && \
 RUN set -xe && \
     [ -n "${SHA}" ] && sed -i "s/#define BUILD_ID \"\"/#define BUILD_ID \"${SHA}\"/ " src/version.h || true && \
     [ -n "${VERSION}" ] && sed -i "s/#define VERSION \"dev\"/#define VERSION \"${VERSION}\"/" src/version.h || true && \
-    # Copy Go library to bridge directory for CMake detection
     mkdir -p bridge && \
     cp /usr/lib/libmihomo.a bridge/ && \
     cp /usr/include/libmihomo.h bridge/ && \
-    # Configure ccache
     export PATH="/usr/lib/ccache:$PATH" && \
     export CCACHE_DIR=/tmp/ccache && \
     export CCACHE_COMPILERCHECK=content && \
-    # Use Ninja generator and enable ccache
     cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_LAUNCHER=ccache . && \
-    # Parallel build
     ninja -j ${THREADS}
 
 # ========== FINAL STAGE ==========
-# 使用 Alpine 作为最终镜像（体积小），安装 glibc 兼容层支持 glibc 编译的二进制
+# 全链路 musl 化：使用纯 Alpine 作为最终镜像，无 glibc 兼容层
 FROM alpine:latest
 
-# 安装运行时依赖 + glibc 兼容层
-# glibc 兼容层解决 Debian 编译的二进制在 Alpine 上运行的问题
+# 安装运行时依赖（纯 musl）
 RUN apk add --no-cache \
-    libstdc++ pcre2 libcurl yaml-cpp ca-certificates wget && \
-    wget -q -O /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub && \
-    wget https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.35-r1/glibc-2.35-r1.apk && \
-    apk add --no-cache --force-overwrite glibc-2.35-r1.apk && \
-    rm glibc-2.35-r1.apk && \
-    apk del wget
+    libstdc++ pcre2 libcurl yaml-cpp ca-certificates
 
 COPY --from=builder /src/subconverter /usr/bin/subconverter
 COPY --from=builder /src/base /base/
