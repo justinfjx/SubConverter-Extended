@@ -35,10 +35,10 @@ RUN go run ../scripts/generate_param_compat.go -o param_compat.h
 
 # Build static library (enable CGO for musl)
 # Docker Buildx 会通过 QEMU 模拟目标架构，因此直接使用原生编译
+# 注意：不使用 -ldflags="-s -w"，因为移除符号表会导致 CGO 程序 Segfault
 RUN echo "==> Building for $TARGETARCH" && \
     CGO_ENABLED=1 go build \
     -buildmode=c-archive \
-    -ldflags="-s -w" \
     -o libmihomo.a \
     .
 
