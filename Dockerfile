@@ -1,5 +1,6 @@
 # ========== GO BUILD STAGE ==========
-FROM golang:1.25-alpine AS go-builder
+# 使用 Debian 版 Go 镜像（glibc），解决 Go CGO 与 musl 不兼容问题
+FROM golang:1.25-bookworm AS go-builder
 
 # Docker Buildx 自动注入目标架构信息
 ARG TARGETARCH
@@ -7,11 +8,10 @@ ARG TARGETVARIANT
 
 WORKDIR /build/bridge
 
-# Alpine 使用 apk 包管理器
-# 注意：Alpine 没有 gcc-arm-linux-gnueabihf 包，但 Docker Buildx 会使用 QEMU 模拟目标架构
-# 所以容器内使用原生编译即可，无需交叉编译工具链
-RUN apk add --no-cache \
-    git build-base gcc
+# Install build dependencies (gcc required for CGO)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git build-essential && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy Go source code FIRST (needed for dependency analysis)
 COPY bridge/converter.go ./
@@ -33,8 +33,7 @@ COPY scripts/ ../scripts/
 RUN go run ../scripts/generate_schemes.go mihomo_schemes.h
 RUN go run ../scripts/generate_param_compat.go -o param_compat.h
 
-# Build static library (enable CGO for musl)
-# Docker Buildx 会通过 QEMU 模拟目标架构，因此直接使用原生编译
+# Build static library (enable CGO for glibc)
 # 注意：不使用 -ldflags="-s -w"，因为移除符号表会导致 CGO 程序 Segfault
 RUN echo "==> Building for $TARGETARCH" && \
     CGO_ENABLED=1 go build \
@@ -46,19 +45,22 @@ RUN echo "==> Building for $TARGETARCH" && \
 RUN ls -lh libmihomo.a libmihomo.h
 
 # ========== C++ BUILD STAGE ==========
-FROM alpine:latest AS builder
+# 使用 Debian 编译（glibc），确保二进制链接 glibc
+FROM debian:bookworm-slim AS builder
 ARG THREADS="4"
 ARG SHA=""
 ARG VERSION="dev"
 
 WORKDIR /
 
-# 安装 Alpine 构建依赖 (使用 apk 而非 apt-get)
-# 注意：curl 是命令行工具，curl-dev 是开发库，两者都需要
-RUN apk add --no-cache \
-    git g++ build-base cmake python3 py3-pip curl \
-    curl-dev pcre2-dev rapidjson-dev yaml-cpp-dev \
-    ca-certificates ninja ccache
+# Install build dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    git g++ build-essential cmake python3 python3-pip \
+    pkg-config curl \
+    libcurl4-openssl-dev libpcre2-dev rapidjson-dev \
+    libyaml-cpp-dev ca-certificates ninja-build ccache && \
+    rm -rf /var/lib/apt/lists/*
 
 # quickjspp
 RUN set -xe && \
@@ -136,10 +138,11 @@ RUN set -xe && \
     ninja -j ${THREADS}
 
 # ========== FINAL STAGE ==========
+# 使用 Alpine 作为最终镜像（体积小），安装 glibc 兼容层支持 glibc 编译的二进制
 FROM alpine:latest
 
-# 安装 glibc 兼容层（解决 Go CGO 与 musl 不兼容导致的 Segfault 问题）
-# 使用 sgerrand 的 glibc 包提供 glibc 运行时支持
+# 安装运行时依赖 + glibc 兼容层
+# glibc 兼容层解决 Debian 编译的二进制在 Alpine 上运行的问题
 RUN apk add --no-cache \
     libstdc++ pcre2 libcurl yaml-cpp ca-certificates wget && \
     wget -q -O /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub && \
