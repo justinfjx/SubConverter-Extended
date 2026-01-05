@@ -139,18 +139,15 @@ RUN set -xe && \
 FROM alpine:latest
 
 # 安装运行时依赖 (Alpine 使用 musl libc)
-# binutils 用于 strip 命令
+# 注意：不使用 strip，因为 Go CGO 程序被 strip 后会导致 Segfault
 RUN apk add --no-cache \
-    libstdc++ pcre2 libcurl yaml-cpp ca-certificates binutils
+    libstdc++ pcre2 libcurl yaml-cpp ca-certificates
 
 COPY --from=builder /src/subconverter /usr/bin/subconverter
 COPY --from=builder /src/base /base/
 
-# Strip 移除调试符号，显著减少二进制体积
-# 显式设置可执行权限，确保容器能正常启动
-RUN strip /usr/bin/subconverter && \
-    chmod +x /usr/bin/subconverter && \
-    apk del binutils
+# 确保二进制可执行
+RUN chmod +x /usr/bin/subconverter
 
 ENV TZ=Africa/Abidjan
 RUN ln -sf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
