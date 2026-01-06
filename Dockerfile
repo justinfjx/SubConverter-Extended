@@ -146,7 +146,7 @@ RUN set -xe && \
 RUN set -xe && \
     mkdir -p /runtime-libs && \
     ldd /src/subconverter /usr/lib/libmihomo.so | \
-      awk '{for (i=1; i<=NF; i++) if ($i ~ /^\\//) print $i}' | \
+      awk '{for (i=1; i<=NF; i++) if ($i ~ "^/") print $i}' | \
       sort -u | \
       while read -r lib; do \
         if [ -e "$lib" ]; then \
@@ -160,7 +160,7 @@ RUN set -xe && \
         cp -a "$loader" "/runtime-libs$loader"; \
       fi; \
     done && \
-    libc_path="$(ldd /src/subconverter | awk '$1 == \"libc.so.6\" {print $3; exit}')" && \
+    libc_path="$(ldd /src/subconverter | awk '$1 == "libc.so.6" {print $3; exit}')" && \
     libc_dir="$(dirname "${libc_path:-/lib/x86_64-linux-gnu/libc.so.6}")" && \
     for extra in libnss_dns.so.2 libnss_files.so.2 libnss_compat.so.2 libresolv.so.2; do \
       if [ -e "$libc_dir/$extra" ]; then \
