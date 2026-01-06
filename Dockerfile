@@ -189,6 +189,7 @@ COPY --from=builder /etc/nsswitch.conf /etc/nsswitch.conf
 RUN chmod +x /usr/bin/subconverter && chmod +x /usr/lib/libmihomo.so
 
 ENV TZ=Africa/Abidjan
+ENV LD_LIBRARY_PATH="/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/lib64:/usr/lib"
 RUN ln -sf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 WORKDIR /base
