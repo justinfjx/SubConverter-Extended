@@ -36,7 +36,6 @@ IF(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         
         # 添加链接器标志
         SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-as-needed")
-        SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
     ENDIF()
 ENDIF()
 
