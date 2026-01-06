@@ -1,6 +1,6 @@
 # ========== GO BUILD STAGE ==========
 # 使用 glibc (Debian) 构建 Go 共享库，避免 musl 下 Go runtime 初始化崩溃
-FROM golang:1.25-bookworm AS go-builder
+FROM golang:latest AS go-builder
 
 ARG TARGETARCH
 ARG TARGETVARIANT
@@ -50,7 +50,7 @@ RUN ls -lh libmihomo.so libmihomo.h
 
 # ========== C++ BUILD STAGE ==========
 # 使用 Debian (glibc) 编译，运行时再搬运依赖到 Alpine
-FROM debian:bookworm-slim AS builder
+FROM debian:latest AS builder
 ARG THREADS="4"
 ARG SHA=""
 ARG VERSION="dev"
@@ -92,9 +92,9 @@ RUN set -xe && \
     install -d /usr/include/date/ && \
     install -m644 libcron/externals/date/include/date/* /usr/include/date/
 
-# toml11
+# toml11 (跟随默认分支最新版本)
 RUN set -xe && \
-    git clone https://github.com/ToruNiina/toml11 --branch="v4.3.0" --depth=1 && \
+    git clone https://github.com/ToruNiina/toml11 --depth=1 && \
     cd toml11 && \
     cmake -DCMAKE_CXX_STANDARD=11 . && \
     make install -j ${THREADS}
