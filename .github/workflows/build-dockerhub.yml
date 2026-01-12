@@ -225,7 +225,9 @@ jobs:
       - name: Check for file changes
         id: check_changes
         run: |
-          git diff --quiet bridge/go.mod bridge/go.sum bridge/libmihomo.h src/parser/mihomo_schemes.h src/parser/param_compat.h include/httplib.h include/nlohmann/json.hpp include/inja.hpp include/jpcre2.hpp include/quickjspp.hpp || echo "changed=true" >> $GITHUB_OUTPUT
+          if [ -n "$(git status --porcelain -- bridge/go.mod bridge/go.sum bridge/libmihomo.h src/parser/mihomo_schemes.h src/parser/param_compat.h include/httplib.h include/nlohmann/json.hpp include/inja.hpp include/jpcre2.hpp include/quickjspp.hpp)" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Commit and push generated files
         if: steps.check_changes.outputs.changed == 'true' && github.event_name != 'pull_request'
