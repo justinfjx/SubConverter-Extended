@@ -737,10 +737,6 @@ void proxyToClash(std::vector<Proxy> &nodes, YAML::Node &yamlnode,
     case ProxyType::Hysteria2:
       singleproxy["type"] = "hysteria2";
       singleproxy["password"] = x.Password;
-      singleproxy["auth"] = x.Password;
-      if (!x.PublicKey.empty()) {
-        singleproxy["ca-str"] = x.PublicKey;
-      }
       if (!x.ServerName.empty()) {
         singleproxy["sni"] = x.ServerName;
       }
@@ -3442,10 +3438,6 @@ void proxyToSingBox(std::vector<Proxy> &nodes, rapidjson::Document &json,
         if (!x.Alpn.empty()) {
           auto alpns = stringArrayToJsonArray(x.Alpn, ",", allocator);
           tls.AddMember("alpn", alpns, allocator);
-        }
-        if (!x.PublicKey.empty()) {
-          tls.AddMember("certificate",
-                        rapidjson::StringRef(x.PublicKey.c_str()), allocator);
         }
         tls.AddMember("insecure", buildBooleanValue(scv), allocator);
         proxy.AddMember("tls", tls, allocator);
