@@ -18,7 +18,7 @@ RUN apt-get update && \
 COPY bridge/converter.go ./
 
 # Initialize new go.mod dynamically
-RUN go mod init github.com/aethersailor/subconverter-extended/bridge
+RUN go mod init github.com/justinfjx/subconverter-extended/bridge
 
 # Get latest Mihomo and resolve all dependencies
 RUN echo "MIHOMO_CACHE_BUST=$MIHOMO_CACHE_BUST" && \
@@ -188,13 +188,13 @@ ARG BUILD_DATE=""
 LABEL \
   org.opencontainers.image.title="SubConverter-Extended" \
   org.opencontainers.image.description="A Modern Evolution of subconverter; an enhanced implementation aligned with Mihomo configuration" \
-  org.opencontainers.image.url="https://github.com/Aethersailor/SubConverter-Extended" \
-  org.opencontainers.image.source="https://github.com/Aethersailor/SubConverter-Extended" \
+  org.opencontainers.image.url="https://github.com/justinfjx/SubConverter-Extended" \
+  org.opencontainers.image.source="https://github.com/justinfjx/SubConverter-Extended" \
   org.opencontainers.image.licenses="GPL-3.0" \
   org.opencontainers.image.version="${VERSION}" \
   org.opencontainers.image.revision="${SHA}" \
   org.opencontainers.image.created="${BUILD_DATE}" \
-  maintainer="Aethersailor"
+  maintainer="justinfjx"
 
 RUN apk add --no-cache ca-certificates
 

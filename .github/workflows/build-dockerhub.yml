@@ -87,7 +87,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: aethersailor/subconverter-extended
+          images: justinfjx/subconverter-extended
           tags: |
             type=raw,value=latest,enable=${{ steps.version.outputs.is_release == 'true' }}
             type=raw,value=${{ steps.version.outputs.version }},enable=${{ steps.version.outputs.is_release == 'true' }}
@@ -406,7 +406,7 @@ jobs:
 
       - name: Create and push manifest list
         env:
-          IMAGE_NAME: aethersailor/subconverter-extended
+          IMAGE_NAME: justinfjx/subconverter-extended
         run: |
           TAGS="${{ needs.prepare.outputs.tags }}"
           for TAG in $TAGS; do

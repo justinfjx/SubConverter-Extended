@@ -295,6 +295,7 @@ void hysteria2Construct(Proxy &node, const std::string &group, const std::string
     node.UpMbps = up;
     node.DownMbps = down;
     node.Alpn = alpn;
+    node.AlpnList = split(alpn, ",");
     node.OBFSParam = obfsParam;
     node.OBFSPassword = obfsPassword;
     node.ServerName = sni;
