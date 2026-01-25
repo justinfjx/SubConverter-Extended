@@ -98,6 +98,22 @@
 #define CPPHTTPLIB_CLIENT_MAX_TIMEOUT_MSECOND 0
 #endif
 
+#ifndef CPPHTTPLIB_EXPECT_100_THRESHOLD
+#define CPPHTTPLIB_EXPECT_100_THRESHOLD 1024
+#endif
+
+#ifndef CPPHTTPLIB_EXPECT_100_TIMEOUT_MSECOND
+#define CPPHTTPLIB_EXPECT_100_TIMEOUT_MSECOND 1000
+#endif
+
+#ifndef CPPHTTPLIB_WAIT_EARLY_SERVER_RESPONSE_THRESHOLD
+#define CPPHTTPLIB_WAIT_EARLY_SERVER_RESPONSE_THRESHOLD (1024 * 1024)
+#endif
+
+#ifndef CPPHTTPLIB_WAIT_EARLY_SERVER_RESPONSE_TIMEOUT_MSECOND
+#define CPPHTTPLIB_WAIT_EARLY_SERVER_RESPONSE_TIMEOUT_MSECOND 50
+#endif
+
 #ifndef CPPHTTPLIB_IDLE_INTERVAL_SECOND
 #define CPPHTTPLIB_IDLE_INTERVAL_SECOND 0
 #endif
@@ -1849,10 +1865,11 @@ private:
   Result send_(Request &&req);
 
   socket_t create_client_socket(Error &error) const;
-  bool read_response_line(Stream &strm, const Request &req,
-                          Response &res) const;
+  bool read_response_line(Stream &strm, const Request &req, Response &res,
+                          bool skip_100_continue = true) const;
   bool write_request(Stream &strm, Request &req, bool close_connection,
-                     Error &error);
+                     Error &error, bool skip_body = false);
+  bool write_request_body(Stream &strm, Request &req, Error &error);
   void prepare_default_headers(Request &r, bool for_stream,
                                const std::string &ct);
   bool redirect(Request &req, Response &res, Error &error);
@@ -3530,6 +3547,8 @@ inline time_t parse_http_date(const std::string &date_str) {
 
 #ifdef _WIN32
   return _mkgmtime(&tm_buf);
+#elif defined _AIX
+  return mktime(&tm_buf);
 #else
   return timegm(&tm_buf);
 #endif
@@ -10089,7 +10108,8 @@ inline void ClientImpl::close_socket(Socket &socket) {
 }
 
 inline bool ClientImpl::read_response_line(Stream &strm, const Request &req,
-                                           Response &res) const {
+                                           Response &res,
+                                           bool skip_100_continue) const {
   std::array<char, 2048> buf{};
 
   detail::stream_line_reader line_reader(strm, buf.data(), buf.size());
@@ -10110,8 +10130,8 @@ inline bool ClientImpl::read_response_line(Stream &strm, const Request &req,
   res.status = std::stoi(std::string(m[2]));
   res.reason = std::string(m[3]);
 
-  // Ignore '100 Continue'
-  while (res.status == StatusCode::Continue_100) {
+  // Ignore '100 Continue' (only when not using Expect: 100-continue explicitly)
+  while (skip_100_continue && res.status == StatusCode::Continue_100) {
     if (!line_reader.getline()) { return false; } // CRLF
     if (!line_reader.getline()) { return false; } // next response line
 
@@ -10896,7 +10916,8 @@ inline bool ClientImpl::write_content_with_provider(Stream &strm,
 }
 
 inline bool ClientImpl::write_request(Stream &strm, Request &req,
-                                      bool close_connection, Error &error) {
+                                      bool close_connection, Error &error,
+                                      bool skip_body) {
   // Prepare additional headers
   if (close_connection) {
     if (!req.has_header("Connection")) {
@@ -11023,37 +11044,51 @@ inline bool ClientImpl::write_request(Stream &strm, Request &req,
   // Check the stream first (which covers SSL via `is_readable()`), then
   // fall back to select on the socket. Only perform the wait for very large
   // request bodies to avoid interfering with normal small requests and
-  // reduce side-effects. Poll briefly (up to 50ms) for an early response.
+  // reduce side-effects. Poll briefly (up to 50ms as default) for an early
+  // response. Skip this check when using Expect: 100-continue, as the protocol
+  // handles early responses properly.
 #if defined(_WIN32)
-  if (req.body.size() > (1u << 20) &&
-      req.path.size() >
-          CPPHTTPLIB_REQUEST_URI_MAX_LENGTH) { // > 1MB && long URI
+  if (!skip_body &&
+      req.body.size() > CPPHTTPLIB_WAIT_EARLY_SERVER_RESPONSE_THRESHOLD &&
+      req.path.size() > CPPHTTPLIB_REQUEST_URI_MAX_LENGTH) {
     auto start = std::chrono::high_resolution_clock::now();
-    const auto max_wait_ms = 50;
+
     for (;;) {
-      auto sock = strm.socket();
       // Prefer socket-level readiness to avoid SSL_pending() false-positives
       // from SSL internals. If the underlying socket is readable, assume an
       // early response may be present.
+      auto sock = strm.socket();
       if (sock != INVALID_SOCKET && detail::select_read(sock, 0, 0) > 0) {
         return false;
       }
+
       // Fallback to stream-level check for non-socket streams or when the
       // socket isn't reporting readable. Avoid using `is_readable()` for
       // SSL, since `SSL_pending()` may report buffered records that do not
       // indicate a complete application-level response yet.
       if (!is_ssl() && strm.is_readable()) { return false; }
+
       auto now = std::chrono::high_resolution_clock::now();
       auto elapsed =
           std::chrono::duration_cast<std::chrono::milliseconds>(now - start)
               .count();
-      if (elapsed >= max_wait_ms) { break; }
+      if (elapsed >= CPPHTTPLIB_WAIT_EARLY_SERVER_RESPONSE_TIMEOUT_MSECOND) {
+        break;
+      }
+
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
   }
 #endif
 
   // Body
+  if (skip_body) { return true; }
+
+  return write_request_body(strm, req, error);
+}
+
+inline bool ClientImpl::write_request_body(Stream &strm, Request &req,
+                                           Error &error) {
   if (req.body.empty()) {
     return write_content_with_provider(strm, req, error);
   }
@@ -11229,9 +11264,20 @@ inline void ClientImpl::output_error_log(const Error &err,
 inline bool ClientImpl::process_request(Stream &strm, Request &req,
                                         Response &res, bool close_connection,
                                         Error &error) {
-  // Send request
+  // Auto-add Expect: 100-continue for large bodies
+  if (CPPHTTPLIB_EXPECT_100_THRESHOLD > 0 && !req.has_header("Expect")) {
+    auto body_size = req.body.empty() ? req.content_length_ : req.body.size();
+    if (body_size >= CPPHTTPLIB_EXPECT_100_THRESHOLD) {
+      req.set_header("Expect", "100-continue");
+    }
+  }
+
+  // Check for Expect: 100-continue
+  auto expect_100_continue = req.get_header_value("Expect") == "100-continue";
+
+  // Send request (skip body if using Expect: 100-continue)
   auto write_request_success =
-      write_request(strm, req, close_connection, error);
+      write_request(strm, req, close_connection, error, expect_100_continue);
 
 #ifdef CPPHTTPLIB_OPENSSL_SUPPORT
   if (is_ssl()) {
@@ -11246,8 +11292,21 @@ inline bool ClientImpl::process_request(Stream &strm, Request &req,
   }
 #endif
 
+  // Handle Expect: 100-continue with timeout
+  if (expect_100_continue && CPPHTTPLIB_EXPECT_100_TIMEOUT_MSECOND > 0) {
+    time_t sec = CPPHTTPLIB_EXPECT_100_TIMEOUT_MSECOND / 1000;
+    time_t usec = (CPPHTTPLIB_EXPECT_100_TIMEOUT_MSECOND % 1000) * 1000;
+    auto ret = detail::select_read(strm.socket(), sec, usec);
+    if (ret <= 0) {
+      // Timeout or error: send body anyway (server didn't respond in time)
+      if (!write_request_body(strm, req, error)) { return false; }
+      expect_100_continue = false; // Switch to normal response handling
+    }
+  }
+
   // Receive response and headers
-  if (!read_response_line(strm, req, res) ||
+  // When using Expect: 100-continue, don't auto-skip `100 Continue` response
+  if (!read_response_line(strm, req, res, !expect_100_continue) ||
       !detail::read_headers(strm, res.headers)) {
     if (write_request_success) { error = Error::Read; }
     output_error_log(error, &req);
@@ -11255,6 +11314,25 @@ inline bool ClientImpl::process_request(Stream &strm, Request &req,
   }
 
   if (!write_request_success) { return false; }
+
+  // Handle Expect: 100-continue response
+  if (expect_100_continue) {
+    if (res.status == StatusCode::Continue_100) {
+      // Server accepted, send the body
+      if (!write_request_body(strm, req, error)) { return false; }
+
+      // Read the actual response
+      res.headers.clear();
+      res.body.clear();
+      if (!read_response_line(strm, req, res) ||
+          !detail::read_headers(strm, res.headers)) {
+        error = Error::Read;
+        output_error_log(error, &req);
+        return false;
+      }
+    }
+    // If not 100 Continue, server returned an error; proceed with that response
+  }
 
   // Body
   if ((res.status != StatusCode::NoContent_204) && req.method != "HEAD" &&
@@ -13017,7 +13095,7 @@ inline bool SSLClient::load_certs() {
         last_openssl_error_ = ERR_get_error();
         ret = false;
       }
-    } else {
+    } else if (!ca_cert_store_) {
       auto loaded = false;
 #ifdef _WIN32
       loaded =
@@ -13264,7 +13342,11 @@ inline bool SSLClient::verify_host_with_common_name(X509 *server_cert) const {
 
 inline bool SSLClient::check_host_name(const char *pattern,
                                        size_t pattern_len) const {
-  if (host_.size() == pattern_len && host_ == pattern) { return true; }
+  // Exact match (case-insensitive)
+  if (host_.size() == pattern_len &&
+      detail::case_ignore::equal(host_, std::string(pattern, pattern_len))) {
+    return true;
+  }
 
   // Wildcard match
   // https://bugs.launchpad.net/ubuntu/+source/firefox-3.0/+bug/376484
@@ -13279,9 +13361,21 @@ inline bool SSLClient::check_host_name(const char *pattern,
   auto itr = pattern_components.begin();
   for (const auto &h : host_components_) {
     auto &p = *itr;
-    if (p != h && p != "*") {
-      auto partial_match = (p.size() > 0 && p[p.size() - 1] == '*' &&
-                            !p.compare(0, p.size() - 1, h));
+    if (!httplib::detail::case_ignore::equal(p, h) && p != "*") {
+      bool partial_match = false;
+      if (!p.empty() && p[p.size() - 1] == '*') {
+        const auto prefix_length = p.size() - 1;
+        if (prefix_length == 0) {
+          partial_match = true;
+        } else if (h.size() >= prefix_length) {
+          partial_match =
+              std::equal(p.begin(), p.begin() + prefix_length, h.begin(),
+                         [](const char ca, const char cb) {
+                           return httplib::detail::case_ignore::to_lower(ca) ==
+                                  httplib::detail::case_ignore::to_lower(cb);
+                         });
+        }
+      }
       if (!partial_match) { return false; }
     }
     ++itr;
